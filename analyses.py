@@ -1,24 +1,11 @@
-import pandas as pd
 
-
-# TODO
-
-# вторая статья
-# 1) и/или - посмотреть внимательнее
-# 2.1) отдельный датасет только из тех антител, для которых есть пдб  и есть птм хоть один(посмотреть статью, откуда мы брали данные о птм, понять, правда ли, что те анитела, которых нет в таблице, не выдали никаких птмов)
-# 2.2) отдельный датасет только из тех антител, для которых есть пдб
-# 3.1) попробовать учесть pH антител для датасета из 2.1 (low ph - acidic, high - basic)
-# 3.2) попробовать учесть pH антител для датасета из 2.2
-#
-# третья статья
-# 1) сделать decision tree/random forest без pphl
-# 1.1) а отдельном только из тех антител, для которых есть пдб  и есть птм хоть один (взять из предыдущего сообщения)
-# 1.2) отдельный датасет только из тех антител, для которых есть пдб (взять из предыдущего сообщения)
-# 2) сделать decision tree/random forest c pphl
-# 2.1) а отдельном только из тех антител, для которых есть пдб  и есть птм хоть один (взять из предыдущего сообщения)
-# 2.2) отдельный датасет только из тех антител, для которых есть пдб (взять из предыдущего сообщения)
 
 def get_pH_and_temperature(folder_path="ab_pdb"):
+    """
+    Добавляем колонку в файл с различными метриками pdb при какой температуре и pH они были сделаны
+    :param folder_path: папка с pdb
+    :return: None
+    """
     import os
     import pandas as pd
     pdb_files = [f for f in os.listdir(folder_path) if f.endswith('.pdb')]
@@ -33,7 +20,6 @@ def get_pH_and_temperature(folder_path="ab_pdb"):
         with open(f'ab_pdb\\{pdb_file}', 'r') as f:
             for line in f:
                 if line.startswith('REMARK'):
-                    # print(line)
                     if ' PH ' in line.upper():
                         if ph is None:
                             ph_line = line.split()[-1]
@@ -68,45 +54,13 @@ def get_pH_and_temperature(folder_path="ab_pdb"):
     df.to_csv('result.csv', index=False)
 
 
-def second_article(path_input, path_output):
-    import pandas as pd
-    df = pd.read_csv(path_input)
-    df['ptm'] = 'No'
-    for index, row in df.iterrows():
-        if row['Is in Beta Sheet'] == True:
-            if (row['pH'] < 7.0 or row['pH'] == 'Both') and row['Temperature'] < 100:
-                df.at[index, 'ptm'] = 'No'
-            elif (row['pH'] >= 7.0 or row['pH'] == 'Both') and row['Temperature'] >= 100:
-                df.at[index, 'ptm'] = 'No'
-        elif row['Is in Beta Sheet'] == False:
-            if row['C_gamma'] > 3.4:
-                if (row['pH'] < 7.0 or row['pH'] == 'Both') and row['Temperature'] <= 100:
-                    df.at[index, 'ptm'] = 'No'
-                elif (row['pH'] >= 7.0 or row['pH'] == 'Both') and row['Temperature'] > 100:
-                    if row['Motif'] in ['NG', 'NH', 'NS']:
-                        df.at[index, 'ptm'] = 'Yes'
-                    else:
-                        df.at[index, 'ptm'] = 'No'
-            elif row['C_gamma'] <= 3.4:
-                if row['SASA'] <= 10:
-                    if (row['pH'] < 7.0 or row['pH'] == 'Both') and row['Temperature'] <= 100:
-                        df.at[index, 'ptm'] = 'No'
-                    elif (row['pH'] >= 7.0 or row['pH'] == 'Both') and row['Temperature'] > 100:
-                        df.at[index, 'ptm'] = 'Yes'
-                elif row['SASA'] > 10:
-                    if (row['pH'] < 7.0 or row['pH'] == 'Both') and row["Temperature"] < 100:
-                        df.at[index, 'ptm'] = 'Yes'
-                    elif (row["pH"] >= 7.0 or row['pH'] == 'Both') and row["Temperature"] >= 100:
-                        df.at[index, 'ptm'] = 'Yes'
-    columns_to_keep = ['PDB ID', 'Drug Name', 'Chain', 'Duplicate Number', 'Sequence', 'SASA', 'C_gamma', 'Res_Num',
-                       'Is in Beta Sheet', 'Motif', 'ptm']
-    new_df = df[columns_to_keep]
-    new_df.to_csv(path_output, index=False)
-    no_df = df[df['ptm'] == 'Yes']
-    no_df.to_csv('no_ptm_train_2_arr.csv', index=False)
-
-
 def do_file_without_duplecates(path_input, path_output):
+    """
+    Создает файл без повторов одинаковых сиквенсов
+    :param path_input: путь файла с сиквенсами
+    :param path_output: путь файла для записи
+    :return: None
+    """
     import csv
 
     with open(path_input, 'r') as input_file, open(path_output, 'w') as output_file:
@@ -122,35 +76,15 @@ def do_file_without_duplecates(path_input, path_output):
                 seen.add(key)
 
 
-def split_datatset(path_input, path_train, path_test):
-    import csv
-    import random
-
-    with open(path_input, 'r') as input_file:
-        reader = csv.DictReader(input_file)
-        data = list(reader)
-
-    random.shuffle(data)
-
-    split_index = int(0.8 * len(data))
-    train_data = data[:split_index]
-    test_data = data[split_index:]
-
-    with open(path_train, 'w') as train_file:
-        writer = csv.DictWriter(train_file, fieldnames=reader.fieldnames, lineterminator='\n')
-        writer.writeheader()
-        writer.writerows(train_data)
-
-    with open(path_test, 'w') as test_file:
-        writer = csv.DictWriter(test_file, fieldnames=reader.fieldnames, lineterminator='\n')
-        writer.writeheader()
-        writer.writerows(test_data)
-
-
-from Bio.PDB import PDBParser
 
 
 def write_asn_residue_numbers(folder_path="ab_pdb", output_file="all_asn.csv"):
+    """
+    Создает файл со всеми аспарагинами со всех pdb
+    :param folder_path: путь к папке с pdb
+    :param output_file: путь к файлу для записи
+    :return: None
+    """
     from Bio import PDB
     import os
     parser = PDB.PDBParser()
@@ -167,29 +101,13 @@ def write_asn_residue_numbers(folder_path="ab_pdb", output_file="all_asn.csv"):
                                 f.write(f'{pdb_id}\t{res_num}\n')
 
 
-def get_asn_residue_numbers(pdb_file):
-    parser = PDBParser()
-    structure = parser.get_structure('structure', pdb_file)
-    return {residue.get_id()[1] for residue in structure.get_residues() if residue.get_resname() == 'ASN'}
-
-
-def compare_folder_and_file(pdb_folder="ab_pdb", drug_file="pdb_to_drug.txt"):
-    import os
-    pdb_files = set(os.listdir(pdb_folder))
-
-    with open(drug_file, 'r') as f:
-        lines = f.readlines()
-
-    with open(drug_file, 'w') as f:
-        for line in lines:
-            drug, pdb_id = line.strip().split()
-            if pdb_id + '.pdb' in pdb_files:
-                f.write(f'{drug} {pdb_id} yes\n')
-            else:
-                f.write(f'{drug} {pdb_id} no\n')
 
 
 def make_dataset():
+    """
+    Создаает датасет
+    :return: None
+    """
     import pandas as pd
 
     result = pd.read_csv('updated_file.csv')
@@ -225,60 +143,11 @@ def make_dataset():
 
 
 
-
-def find_tp_tn_fp_fn(path1, path2):
-    import csv
-    import os
-    import warnings
-    from Bio.PDB.PDBExceptions import PDBConstructionWarning
-
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', PDBConstructionWarning)
-
-        pdb_folder = 'D:\\Study\\нир\\ab_pdb'
-        pdb_files = [os.path.join(pdb_folder, f) for f in os.listdir(pdb_folder) if f.endswith('.pdb')]
-        tn = 0
-        tp = 0
-        fp = 0
-        fn = 0
-
-        with open(path1, 'r') as f:
-            reader = csv.DictReader(f)
-            file1_data = [row for row in reader]
-
-        with open(path2, 'r') as f:
-            reader = csv.DictReader(f)
-            file2_data = [row for row in reader]
-
-        for pdb_file in pdb_files:
-            asn_numbers = get_asn_residue_numbers(pdb_file)
-            for asn_number in asn_numbers:
-                file1_row = next((row for row in file1_data if int(row['index']) - 1 == asn_number), None)
-                file2_row = next((row for row in file2_data if int(row['Res_Num']) - 1 == asn_number), None)
-
-                if (not file1_row or float(file1_row['% modified']) < 5) and not file2_row:
-                    tn += 1
-                elif file1_row and float(file1_row['% modified']) > 5 and not file2_row:
-                    fn += 1
-                elif (not file1_row or float(file1_row['% modified']) < 5) and file2_row:
-                    fp += 1
-                elif file1_row and float(file1_row['% modified']) > 5 and file2_row:
-                    tp += 1
-
-    recall = tp / (tp + fn) if (tp + fn) != 0 else 0
-    precision = tp / (tp + fp) if (tp + fp) != 0 else 0
-    accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) != 0 else 0
-
-    print(f'TP: {tp}')
-    print(f'FP: {fp}')
-    print(f'FN: {fn}')
-    print(f'TN: {tn}')
-    print(f'Recall: {recall}')
-    print(f'Precision: {precision}')
-    print(f'Accuracy: {accuracy}')
-
-
 def count_the_same_names():
+    """
+    Считает количество уникальных названий лекарств
+    :return: None
+    """
     import pandas as pd
     df1 = pd.read_csv('tmp.csv')
     df2 = pd.read_csv('result.csv')
@@ -302,6 +171,10 @@ def longest_common_subsequence(s1, s2):
     return lcs
 
 def drop_from_dataset():
+    """
+    Выкидывает из датасета сиквенсы не относящиеся к вариабельному дамену или выходящие за его пределы
+    :return: None
+    """
     import pandas as pd
 
     dataset = pd.read_csv('dataset.csv')
